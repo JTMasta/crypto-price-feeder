@@ -7,8 +7,10 @@ const { parse } = require("json2csv")
 
 const app = express();
 const url = "https://coinmarketcap.com/"
+// top 10 coins
 const selector = "#__next > div > div.main-content > div.sc-4vztjb-0.cLXodu.cmc-body-wrapper > div > div:nth-child(1) > div.h7vnx2-1.bFzXgL > table > tbody > tr"
 
+// What I want to scrape
 const keys = [
   'rank',
   'name',
@@ -23,10 +25,13 @@ const keys = [
 
 coinArr = []
 
-axios(url)
-  .then(response => {
-    const html = response.data
-    const $ = cheerio.load(html)
+async function getCoinPrices() { 
+
+  try {
+
+    
+    const { data } = await axios(url)
+    const $ = cheerio.load(data)
     
     $(selector).each((parentId, parentElement) => {
       let keyIndex = 0
@@ -43,17 +48,40 @@ axios(url)
           coinArr.push((coins))   
       }
     })
-
+    
     let count = 0;
+    // cleaning up coin names
     while (count < 10) {
       coinArr[count].name = coinArr[count].name.substring(0, coinArr[0+count].name.indexOf(`${count+1}`))
       count++
     }
+  
     const csv = parse(coinArr)
-    writeFileSync("test.csv", csv)
-  })
-    .catch(err => console.log(err))
-  app.listen(PORT, () => console.log(`server running on PORT ${PORT}`))
+    const fileName = `crypto_prices_${(new Date().toJSON().slice(0,10))}.csv`
+    writeFileSync(`${fileName}`, csv) 
+    return coinArr
+    
+  } catch (err) {
+    console.error(err)
+  }
+}
+ 
+  
+app.get('/api/coin-prices', async (req, res) => {
+  try {
+    const prices = await getCoinPrices() 
+    
+    return res.status(200).json({
+      prices
+    })
+  } catch (error) {
+    return res.status(500).json({
+      error
+    })
+  }
+})
+
+app.listen(PORT, () => console.log(`server running on PORT ${PORT}`))
 
 
 
